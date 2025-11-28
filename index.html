@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mini weather Station</title>
+        <style>
+    body {
+      font-family: Arial;
+      background: #a99797;
+      padding: 20px;
+    }
+    .lamp {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: rgb(251, 251, 251);
+    margin-left: 10px;
+    display: inline-block;
+    
+    #statusL {
+            padding: 5px 10px;
+            font-weight: bold;
+            border-radius: 5px;
+            display: inline-block;
+        }
+    }
+    h1 {
+    text-align: center;
+    color: #00fc58;
+       
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      width: 250px;
+    }
+    
+    .container {
+    display: flex;
+    justify-content: center;   /* center horizontal */
+    align-items: center;        /* center vertical *
+    margin-top: 20px;           /* beri jarak dari judul */
+    }
+
+    .value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #007bff;
+    }
+        </style>
+    </head>
+    <body>
+      <h1>Mini Weather Station</h1>
+
+    <div class = "container">
+      <div class="card">
+        <p>Suhu : <span id ="temp">--</span></p>
+        <p>kelembapan: <span id ="hum">--</span></p> 
+        <p>Status Lampu: <span id="statusL">--</span> 
+            <span class="lamp" id="lampIcon"></span>
+        </p>
+      </div>
+    </div>
+  <button id="connectBtn">Connect Arduino</button>
+
+<script>
+let port, reader;
+let buffer = ""; // menampung data serial per baris
+
+document.getElementById("connectBtn").addEventListener("click", async () => {
+    try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        reader = decoder.readable.getReader();
+
+        readLoop();
+    } catch (err) {
+        alert("Gagal connect: " + err);
+    }
+});
+
+async function readLoop() {
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        if (value) {
+            buffer += value;               // kumpulkan data
+            let lines = buffer.split("\n"); // pecah per baris
+            
+            buffer = lines.pop(); // sisa yang belum lengkap
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith("{") && line.endsWith("}")) {
+                    try {
+                        const data = JSON.parse(line);
+                        console.log("Status diterima:", data.status);
+
+                        document.getElementById("temp").innerText = data.temp + " °C";
+                        document.getElementById("hum").innerText = data.hum + " %";
+
+                        const lampBox = document.getElementById("statusL");
+
+                        if (data.statusL === "Merah") {
+                            lampBox.innerText = "Merah";
+                            lampBox.style.background = "red";
+                            lampBox.style.color = "white";
+                        } else if (data.statusL === "Hijau") {
+                            lampBox.innerText = "HIJAU";
+                            lampBox.style.background = "green";
+                            lampBox.style.color = "white";
+                        } else {
+                            lampBox.innerText = "--";
+                            lampBox.style.background = "transparent";
+                        }
+
+                    } catch (e) {
+                        console.log("JSON gagal:", line);
+                    }
+                }
+            });
+        }
+    }
+}
+</script>
+    </body>
+</html>
